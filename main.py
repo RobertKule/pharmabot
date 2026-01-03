@@ -1,44 +1,54 @@
+# -*- coding: utf-8 -*-
+# main.py
+# =========================
+# PharmaBot Console
+# =========================
+
 """
 PharmaBot Console
 Assistant d'orientation pharmaceutique en console
-- Utilise LangChain v1+ (Runnable)
+
+- LangChain v1+ (Runnable API)
 - Modèle Gemini gratuit
 - Mémoire de conversation en RAM
+- Apprentissage "learn by doing"
 """
 
 # =========================
-# Imports LangChain & utils
+# Imports de base
 # =========================
 
-# Pour créer un prompt structuré
+from dotenv import load_dotenv
+
+# Prompt structuré
 from langchain_core.prompts import PromptTemplate
 
 # Modèle Gemini (Google)
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Chargement du prompt principal
+# Prompt métier
 from prompts import PHARMA_PROMPT
 
-# Gestion des variables d'environnement (.env)
-from dotenv import load_dotenv
 
 # =========================
-# Imports pour la mémoire
+# Imports mémoire (LangChain v1+)
 # =========================
 
-# Historique de conversation en mémoire (RAM)
+# Historique de conversation en RAM
 from langchain_core.chat_history import InMemoryChatMessageHistory
 
-
-# Wrapper pour ajouter la mémoire à une chain Runnable
+# Wrapper pour ajouter la mémoire à une chain
 from langchain_core.runnables.history import RunnableWithMessageHistory
-
+# =========================
+# Imports spécifiques LLM Google Gemini
+from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
+from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 
 # =========================
 # Chargement des variables d'environnement
 # =========================
 
-# Charge GOOGLE_API_KEY depuis le fichier .env
+# Charge GOOGLE_API_KEY depuis .env
 load_dotenv()
 
 
@@ -46,11 +56,11 @@ load_dotenv()
 # Configuration du LLM
 # =========================
 
-# Initialisation du modèle Gemini
-# temperature basse = réponses calmes, factuelles (important en santé)
+# Gemini Flash : rapide, gratuit, suffisant pour ce projet
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0.3
+    # model="gemini-2.5-flash",
+    model="gemma-3-1b-it",
+    temperature=0.3  # faible = réponses calmes et prudentes
 )
 
 
@@ -58,7 +68,9 @@ llm = ChatGoogleGenerativeAI(
 # Création du prompt
 # =========================
 
-# PromptTemplate permet d'injecter dynamiquement les symptômes utilisateur
+# Le prompt reçoit :
+# - symptoms : entrée utilisateur
+# - history  : historique de la conversation
 prompt = PromptTemplate(
     input_variables=["symptoms", "history"],
     template=PHARMA_PROMPT
@@ -66,72 +78,70 @@ prompt = PromptTemplate(
 
 
 # =========================
-# Création de la chain LangChain (API moderne)
+# Création de la chain de base
 # =========================
 
-# Ici on compose simplement :
-# prompt -> LLM
-chain = prompt | llm
+# Prompt → LLM
+base_chain = prompt | llm
 
 
 # =========================
 # Ajout de la mémoire
 # =========================
 
-# Stockage de l'historique de conversation en RAM
-# (réinitialisé à chaque redémarrage du programme)
+# Historique stocké en RAM (session console)
 chat_history = InMemoryChatMessageHistory()
 
-# On enveloppe la chain avec une mémoire conversationnelle
+# Chain avec mémoire
 chain_with_memory = RunnableWithMessageHistory(
-    chain,
-    # Une fonction qui retourne l'historique selon l'id de session
-    lambda session_id: chat_history,
-    # Clé d'entrée utilisateur
+    base_chain,
+    lambda session_id: chat_history,   # une seule session
     input_messages_key="symptoms",
-    # Clé interne utilisée pour l'historique
-    history_messages_key="history",
+    history_messages_key="history"
 )
 
 
 # =========================
-# Fonction principale de réponse
+# Fonction principale
 # =========================
 
 def get_pharma_advice(symptoms: str) -> str:
     """
-    Envoie les symptômes à l'IA et retourne la réponse textuelle.
-    La mémoire est automatiquement prise en compte.
+    Envoie les symptômes à l'IA
+    + conserve l'historique
     """
-    response = chain_with_memory.invoke(
-        {"symptoms": symptoms},
-        # session_id permet de garder la même mémoire
-        config={"configurable": {"session_id": "pharmabot_console"}}
-    )
-    return response.content
+    try:
+        response = chain_with_memory.invoke(
+            {"symptoms": symptoms},
+            config={
+                "configurable": {
+                    "session_id": "pharmabot_console"
+                }
+            }
+        )
+        return response.content
+    except ChatGoogleGenerativeAIError as e:
+        return "⚠️ Le quota gratuit du modèle Gemini est épuisé pour aujourd'hui. Veuillez réessayer plus tard ou envisager un plan payant."
 
 
 # =========================
-# Boucle principale (console)
+# Boucle console
 # =========================
 
 if __name__ == "__main__":
+
     print("🩺 PharmaBot Console")
     print("Tape 'exit' pour quitter\n")
 
     while True:
-        # Entrée utilisateur
         user_input = input("👤 Décris tes symptômes : ")
 
-        # Condition de sortie
         if user_input.lower() == "exit":
             print("👋 Au revoir!")
             break
 
-        # Appel de l'IA
         advice = get_pharma_advice(user_input)
 
-        # Affichage de la réponse
         print("\n💊 PharmaBot :")
         print(advice)
         print("-" * 50)
