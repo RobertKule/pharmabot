@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 # Historique de conversation en mémoire (RAM)
 from langchain_core.chat_history import InMemoryChatMessageHistory
 
+
 # Wrapper pour ajouter la mémoire à une chain Runnable
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
