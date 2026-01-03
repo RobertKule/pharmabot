@@ -1,50 +1,44 @@
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain_google_genai import ChatGoogleGenerativeAI
 from prompts import PHARMA_PROMPT
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure the LLM
-#openai
-from langchain.chat_models import ChatOpenAI
-llm=ChatOpenAI(
-    temperature=0.3, 
-    model_name="gpt-3.5-turbo"
-)
-
-#google genai
-from langchain_google_genai import ChatGoogleGenerativeAI
+# Configure the LLM (Gemini – gratuit)
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
+    model="gemini-2.5-flash",
     temperature=0.3
 )
 
-# Create the prompt and chain
-prompt=PromptTemplate(
+
+# Prompt
+prompt = PromptTemplate(
     input_variables=["symptoms"],
     template=PHARMA_PROMPT
 )
-chain=LLMChain(
-    llm=llm,
-    prompt=prompt
-)
 
-# Function to get pharmaceutical advice
+# ✅ Nouvelle chain (LangChain v1+)
+chain = prompt | llm
+
+
 def get_pharma_advice(symptoms: str) -> str:
-    response = chain.run(symptoms=symptoms)
-    return response
+    response = chain.invoke({"symptoms": symptoms})
+    return response.content
 
-# Main interaction loop
+
 if __name__ == "__main__":
-    print("🩺 PharmaBot Console \n\nTape 'exit' pour quitter\n")
+    print("🩺 PharmaBot Console")
+    print("Tape 'exit' pour quitter\n")
+
     while True:
         user_input = input("👤 Décris tes symptômes : ")
-        if user_input.lower() == 'exit':
+
+        if user_input.lower() == "exit":
             print("👋 Au revoir!")
             break
+
         advice = get_pharma_advice(user_input)
-        print(f"💊 PharmaBot : {advice}\n")
-        print("-*-" * 50)
-    
+        print("\n💊 PharmaBot :")
+        print(advice)
+        print("-" * 50)
