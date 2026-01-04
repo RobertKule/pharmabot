@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # utils.py
 # =========================
 # Détection simple de symptômes graves

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # main.py
 # =========================
-# PharmaBot Console – INTERACTIF HUMAIN
+# PharmaBot Console – INTERACTIF HUMAIN avec mémoire
 # =========================
 
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ from prompts import PHARMA_PROMPT
 from utils import check_grave_symptoms
 
 # =========================
-# Init
+# Init LLM et prompt
 # =========================
 
 load_dotenv()
@@ -42,15 +42,14 @@ chain = RunnableWithMessageHistory(
 )
 
 # =========================
-# Logique principale
+# Fonction principale
 # =========================
 
-def get_pharma_advice(symptoms: str) -> str:
+def get_pharma_advice_with_history(symptoms: str, history: list[str]) -> str:
     """
-    Gère une interaction humaine avec mémoire.
+    Génère une réponse humaine en utilisant l'historique complet.
     """
     try:
-        # Détection urgence AVANT LLM
         if check_grave_symptoms(symptoms):
             return (
                 "⚠️ Les symptômes décrits peuvent être sérieux.\n"
@@ -58,10 +57,12 @@ def get_pharma_advice(symptoms: str) -> str:
                 "on a fini. As-tu d'autres questions ?"
             )
 
-        response = chain.invoke(
-            {"symptoms": symptoms},
-            config={"configurable": {"session_id": "pharmabot_console"}}
-        )
+        formatted_history = "\n".join(history)
+
+        response = base_chain.invoke({
+            "symptoms": symptoms,
+            "history": formatted_history
+        })
 
         return response.content
 
@@ -69,20 +70,27 @@ def get_pharma_advice(symptoms: str) -> str:
         return "⚠️ Le quota du modèle est atteint. Réessaie plus tard."
 
 # =========================
-# Console
+# Interface console
 # =========================
 
 if __name__ == "__main__":
-    print("🩺 PharmaBot Console")
+    print("🩺 PharmaBot Console – INTERACTIF HUMAIN")
     print("Tape 'exit' pour quitter\n")
+
+    chat_memory = []
 
     while True:
         user_input = input("👤 Décris tes symptômes : ")
-
         if user_input.lower() == "exit":
             print("👋 Au revoir!")
             break
 
+        chat_memory.append(f"Utilisateur : {user_input}")
+
+        response = get_pharma_advice_with_history(user_input, chat_memory)
+
+        chat_memory.append(f"Assistant : {response}")
+
         print("\n💊 PharmaBot :")
-        print(get_pharma_advice(user_input))
+        print(response)
         print("-" * 50)
